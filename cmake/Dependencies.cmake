@@ -229,6 +229,10 @@ elseif(BLAS STREQUAL "vecLib")
   set(BLAS_INFO "veclib")
   set(BLAS_FOUND 1)
   set(BLAS_LIBRARIES ${vecLib_LINKER_LIBS})
+elseif(BLAS STREQUAL "FlexiBLAS")
+  find_package(FlexiBLAS REQUIRED)
+  include_directories(SYSTEM ${FlexiBLAS_INCLUDE_DIR})
+  list(APPEND Caffe2_PUBLIC_DEPENDENCY_LIBS ${FlexiBLAS_LIB})
 elseif(BLAS STREQUAL "Generic")
   # On Debian family, the CBLAS ABIs have been merged into libblas.so
   find_library(BLAS_LIBRARIES blas)
@@ -245,7 +249,7 @@ if(NOT INTERN_BUILD_MOBILE)
   set(AT_MKL_ENABLED 0)
   set(AT_MKL_MT 0)
   set(USE_BLAS 1)
-  if(NOT (ATLAS_FOUND OR BLIS_FOUND OR GENERIC_BLAS_FOUND OR MKL_FOUND OR OpenBLAS_FOUND OR VECLIB_FOUND))
+  if(NOT (ATLAS_FOUND OR BLIS_FOUND OR GENERIC_BLAS_FOUND OR MKL_FOUND OR OpenBLAS_FOUND OR VECLIB_FOUND OR FlexiBLAS_FOUND))
     message(WARNING "Preferred BLAS (" ${BLAS} ") cannot be found, now searching for a general BLAS library")
     find_package(BLAS)
     if(NOT BLAS_FOUND)
@@ -1618,6 +1622,12 @@ if(NOT INTERN_BUILD_MOBILE)
     set(CMAKE_CXX_STANDARD 14)
   endif()
 
+  # use cub in a safe manner, see:
+  # https://github.com/pytorch/pytorch/pull/55292
+  if(NOT ${CUDA_VERSION} LESS 11.5)
+    string(APPEND CMAKE_CUDA_FLAGS " -DCUB_WRAPPED_NAMESPACE=at_cuda_detail")
+  endif()
+
   if(CUDA_HAS_FP16 OR NOT ${CUDA_VERSION} LESS 7.5)
     message(STATUS "Found CUDA with FP16 support, compiling with torch.cuda.HalfTensor")
     string(APPEND CMAKE_CUDA_FLAGS " -DCUDA_HAS_FP16=1"
@@ -1960,24 +1970,6 @@ if(USE_KINETO)
       message(STATUS "  CUDA_cupti_LIBRARY = ${CUDA_cupti_LIBRARY}")
       message(STATUS "Found CUPTI")
       set(LIBKINETO_NOCUPTI OFF CACHE STRING "" FORCE)
-
-      include(CheckCXXSourceRuns)
-      unset(EXCEPTIONS_WORK CACHE)
-      set(CMAKE_REQUIRED_LINK_OPTIONS "-Wl,--whole-archive,${CUPTI_LIBRARY_PATH},--no-whole-archive")
-      check_cxx_source_runs("#include <stdexcept>
-int main() {
-  try {
-    throw std::runtime_error(\"error\");
-  } catch (...) {
-    return 0;
-  }
-  return 1;
-}" EXCEPTIONS_WORK)
-      set(CMAKE_REQUIRED_LINK_OPTIONS "")
-      if(NOT EXCEPTIONS_WORK)
-        message(FATAL_ERROR "Detected that statically linking against CUPTI causes exceptions to stop working.  See https://github.com/pytorch/pytorch/issues/57744 for more details.  Perhaps try: USE_CUPTI_SO=1 python setup.py develop --cmake")
-      endif()
-
     else()
       message(STATUS "Could not find CUPTI library, using CPU-only Kineto build")
       set(LIBKINETO_NOCUPTI ON CACHE STRING "" FORCE)
