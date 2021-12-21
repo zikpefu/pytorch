@@ -138,6 +138,13 @@
 #define C10_UNUSED __attribute__((__unused__))
 #endif //_MSC_VER
 
+// Direct port of LLVM_ATTRIBUTE_USED.
+#if __has_attribute(used)
+#define C10_USED __attribute__((__used__))
+#else
+#define C10_USED
+#endif
+
 #define C10_RESTRICT __restrict
 
 // Simply define the namespace, in case a dependent library want to refer to
@@ -464,8 +471,7 @@ __host__ __device__
 #endif
 #endif
 
-#endif // C10_MACROS_MACROS_H_
-
+#ifndef HAS_DEMANGLE
 #if defined(__ANDROID__) || defined(_WIN32) || defined(__EMSCRIPTEN__) || \
     defined(__XROS__)
 #define HAS_DEMANGLE 0
@@ -475,3 +481,6 @@ __host__ __device__
 #else
 #define HAS_DEMANGLE 1
 #endif
+#endif // HAS_DEMANGLE
+
+#endif // C10_MACROS_MACROS_H_
