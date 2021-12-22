@@ -11252,6 +11252,7 @@ op_db: List[OpInfo] = [
            supports_out=False,
            assert_jit_shape_analysis=True,
            dtypes=floating_types(),
+           dtypesIfCPU=floating_types_and(torch.bfloat16),
            dtypesIfCUDA=floating_types_and(torch.float16, torch.bfloat16),
            sample_inputs_func=sample_inputs_max_pool),
     OpInfo('nn.functional.max_pool3d',
