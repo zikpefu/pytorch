@@ -10,7 +10,10 @@ from ..utils import (
 from .graph_module import (
     FusedGraphModule
 )
-from .match_utils import is_match
+from .match_utils import (
+    is_match,
+    calculate_module_name_to_num_node_users,
+)
 from .pattern_utils import (
     get_default_fusion_patterns,
 )
@@ -86,6 +89,8 @@ class Fuser:
             patterns: Dict[Pattern, Callable]
     ) -> Dict[str, Tuple[Node, Pattern, NodePattern, FuseHandler]]:
         modules = dict(root.named_modules())
+        module_name_to_num_node_users = \
+            calculate_module_name_to_num_node_users(graph)
         match_map : Dict[str, Tuple[Node, Pattern, NodePattern, FuseHandler]] = {}  # node name -> (root_node, match_value)
 
         def apply_match(pattern, node, match, matched_node_pattern):
@@ -107,7 +112,9 @@ class Fuser:
             if node.name not in match_map:
                 for pattern, value in patterns.items():
                     matched_node_pattern: List[Node] = []
-                    if is_match(modules, node, pattern):
+                    if is_match(
+                            modules, node, pattern,
+                            module_name_to_num_node_users):
                         apply_match(pattern, node, (node, pattern, value(self, node)), matched_node_pattern)
 
         return match_map

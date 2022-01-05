@@ -5,6 +5,7 @@ from .graph_module import QuantizedGraphModule
 from .quantized_fusion_patterns_and_replacements import get_fbgemm_patterns_and_replacements
 from .match_utils import is_match
 from .match_utils import MatchAllNode
+from .match_utils import calculate_module_name_to_num_node_users
 from ..utils import _parent_name
 from typing import Dict, Type
 
@@ -32,8 +33,10 @@ def _lower_weighted_ref_module(model: QuantizedGraphModule, ref_class: Type[torc
     nodes = list(model.graph.nodes)
     # TODO: maybe orgnize this better (e.g. break down to more functions)
     # to make this function more readable
+    module_name_to_num_node_users = \
+        calculate_module_name_to_num_node_users(model.graph)
     for n in model.graph.nodes:
-        if not is_match(modules, n, pattern):
+        if not is_match(modules, n, pattern, module_name_to_num_node_users):
             continue
         q_node = n
         ref_node = q_node.args[0]
