@@ -1,6 +1,8 @@
 import copy
+import pickle
 import warnings
 from torch.utils.data import IterDataPipe
+from typing import Callable
 
 
 class IterableWrapperIterDataPipe(IterDataPipe):
@@ -65,6 +67,40 @@ class IterableWrapperIterDataPipe(IterDataPipe):
         self.iter = None
         self._create_iterator()
         self.been_reset = True
+
+    def save_snapshot(self):
+        return self.state_counter
+
+    def restore_snapshot(self, target_count=None):  # This should be called after __setstate__
+        if target_count is None:
+            target_count = self.state_counter
+        self.state_counter = 0
+        while self.state_counter < target_count:
+            next(self)
+
+    def __getstate__(self, preprocess_iterable_fn: Callable = list):
+        """
+        Args:
+            preprocess_iterable_fn: in cases where `self.iterable` is not serializable, this function
+                will be called to preprocess `self.iterable`. By default, the `list` function
+                is called in an attempt to materialize the iterable.
+        """
+        if self.iter is not None:
+            raise Exception(f"{type(self).__name__} is only serializable before it has been iterated upon.")
+        try:
+            pickle.dumps(self.iterable)
+            iterable_to_pickle = self.iterable
+        except TypeError:
+            iterable_to_pickle = preprocess_iterable_fn(self.iterable)
+        state = self.__dict__.copy()
+        del state['iter']
+        state['iterable'] = iterable_to_pickle
+        return state
+
+    def __setstate__(self, state):
+        self.__dict__ = state
+        self.iter = None
+        self.iter = self.__iter__()
 
     def __len__(self):
         return len(self.iterable)
