@@ -7,13 +7,13 @@ namespace native {
 namespace cpublas {
 namespace {
 
-template <typename scalar_t>
-void scale_(int64_t m, int64_t n, scalar_t alpha, scalar_t *a, int64_t lda) {
-  if (alpha == scalar_t(1)) {
+template <typename scalar_t, typename opmath_t>
+void scale_(int64_t m, int64_t n, opmath_t alpha, scalar_t *a, int64_t lda) {
+  if (alpha == opmath_t(1)) {
     return;  // identity
   }
 
-  if (alpha == scalar_t(0)) {
+  if (alpha == opmath_t(0)) {
     for (const auto j : c10::irange(n)) {
       for (const auto i : c10::irange(m)) {
         a[j * lda + i] = scalar_t(0);
@@ -30,13 +30,13 @@ void scale_(int64_t m, int64_t n, scalar_t alpha, scalar_t *a, int64_t lda) {
 }
 
 
-template <typename scalar_t>
+template <typename scalar_t, typename opmath_t>
 void gemm_notrans_(
     int64_t m, int64_t n, int64_t k,
-    scalar_t alpha,
+    opmath_t alpha,
     const scalar_t *a, int64_t lda,
     const scalar_t *b, int64_t ldb,
-    scalar_t beta,
+    opmath_t beta,
     scalar_t *c, int64_t ldc) {
   // c *= beta
   scale_(m, n, beta, c, ldc);
@@ -44,7 +44,7 @@ void gemm_notrans_(
   // c += alpha * (a @ b)
   for (const auto l : c10::irange(k)) {
     for (const auto j : c10::irange(n)) {
-      scalar_t val = b[l + j * ldb] * alpha;
+      opmath_t val = b[l + j * ldb] * alpha;
       int64_t i_m = m / 4;
       for (const auto i_i : c10::irange(i_m)) {
         c[j * ldc + i_i * 4 + 0] += a[i_i * 4 + 0 + l * lda] * val;
@@ -59,22 +59,22 @@ void gemm_notrans_(
   }
 }
 
-template <typename scalar_t>
+template <typename scalar_t, typename opmath_t>
 void gemm_transa_(
     int64_t m, int64_t n, int64_t k,
-    scalar_t alpha,
+    opmath_t alpha,
     const scalar_t *a, int64_t lda,
     const scalar_t *b, int64_t ldb,
-    scalar_t beta,
+    opmath_t beta,
     scalar_t *c, int64_t ldc) {
   // c = alpha * (a.T @ b) + beta * c
   const scalar_t *a_ = a;
   for (const auto i : c10::irange(m)) {
     const scalar_t *b_ = b;
     for (const auto j : c10::irange(n)) {
-      scalar_t sum = 0;
+      opmath_t sum = 0;
       for (const auto l : c10::irange(k)) {
-        sum += a_[l]*b_[l];
+        sum += static_cast<opmath_t>(a_[l]) * static_cast<opmath_t>(b_[l]);
       }
       b_ += ldb;
       if (beta == scalar_t(0))
@@ -86,13 +86,13 @@ void gemm_transa_(
   }
 }
 
-template <typename scalar_t>
+template <typename scalar_t, typename opmath_t>
 void gemm_transb_(
     int64_t m, int64_t n, int64_t k,
-    scalar_t alpha,
+    opmath_t alpha,
     const scalar_t *a, int64_t lda,
     const scalar_t *b, int64_t ldb,
-    scalar_t beta,
+    opmath_t beta,
     scalar_t *c, int64_t ldc) {
   // c *= beta
   scale_(m, n, beta, c, ldc);
@@ -100,7 +100,7 @@ void gemm_transb_(
   // c += alpha * (a @ b.T)
   for (const auto l : c10::irange(k)) {
     for (const auto j : c10::irange(n)) {
-      scalar_t val = b[j + l * ldb] * alpha;
+      opmath_t val = b[j + l * ldb] * alpha;
       int64_t i_m = m / 4;
       for (const auto i_i : c10::irange(i_m)) {
         c[j * ldc + i_i * 4 + 0] += a[i_i * 4 + 0 + l * lda] * val;
@@ -115,13 +115,13 @@ void gemm_transb_(
   }
 }
 
-template <typename scalar_t>
+template <typename scalar_t, typename opmath_t>
 void gemm_transab_(
     int64_t m, int64_t n, int64_t k,
-    scalar_t alpha,
+    opmath_t alpha,
     const scalar_t *a, int64_t lda,
     const scalar_t *b, int64_t ldb,
-    scalar_t beta,
+    opmath_t beta,
     scalar_t *c, int64_t ldc) {
   // c *= beta
   scale_(m, n, beta, c, ldc);
@@ -132,29 +132,29 @@ void gemm_transab_(
       int64_t l_k = k / 4;
       for (const auto l_l : c10::irange(l_k)) {
         c[j * ldc + i] += a[i * lda + l_l * 4 + 0] //
-          * b[(l_l * 4 + 0) * ldb + j] * alpha;
+            * (b[(l_l * 4 + 0) * ldb + j] * alpha);
         c[j * ldc + i] += a[i * lda + l_l * 4 + 1] //
-          * b[(l_l * 4 + 1) * ldb + j] * alpha;
+            * (b[(l_l * 4 + 1) * ldb + j] * alpha);
         c[j * ldc + i] += a[i * lda + l_l * 4 + 2] //
-          * b[(l_l * 4 + 2) * ldb + j] * alpha;
+            * (b[(l_l * 4 + 2) * ldb + j] * alpha);
         c[j * ldc + i] += a[i * lda + l_l * 4 + 3] //
-          * b[(l_l * 4 + 3) * ldb + j] * alpha;
+            * (b[(l_l * 4 + 3) * ldb + j] * alpha);
       }
       int64_t l = l_k * 4;
       for (; l < k; l++)
-        c[j * ldc + i] += a[i * lda + l] * b[l * ldb + j] * alpha;
+        c[j * ldc + i] += a[i * lda + l] * (b[l * ldb + j] * alpha);
     }
   }
 }
 
-template <typename scalar_t>
+template <typename scalar_t, typename opmath_t>
 void gemm_core_(
     TransposeType transa, TransposeType transb,
     int64_t m, int64_t n, int64_t k,
-    scalar_t alpha,
+    opmath_t alpha,
     const scalar_t *a, int64_t lda,
     const scalar_t *b, int64_t ldb,
-    scalar_t beta,
+    opmath_t beta,
     scalar_t *c, int64_t ldc) {
   if(transa == TransposeType::NoTranspose && transb == TransposeType::NoTranspose) {
     return gemm_notrans_(m, n, k, alpha, a, lda, b, ldb, beta, c, ldc);
@@ -179,12 +179,13 @@ void cpublas_gemm_impl(
   AT_DISPATCH_ALL_TYPES_AND_COMPLEX_AND2(at::kHalf, at::kBFloat16,
     type, "cpublas_gemm_impl",
       [&]{
+        using opmath_t = at::opmath_type<scalar_t>;
         gemm_core_(
             transa, transb, m, n, k,
-            alpha.to<scalar_t>(),
+            alpha.to<opmath_t>(),
             static_cast<const scalar_t *>(a), lda,
             static_cast<const scalar_t *>(b), ldb,
-            beta.to<scalar_t>(),
+            beta.to<opmath_t>(),
             static_cast<scalar_t *>(c), ldc);
       });
 }
@@ -192,7 +193,8 @@ void cpublas_gemm_impl(
 void cpublas_axpy_impl(at::ScalarType type, int64_t n, const Scalar& _a, const void *_x, int64_t incx, void *_y, int64_t incy){
   AT_DISPATCH_ALL_TYPES_AND_COMPLEX(type, "cpublas_axpy_impl",
     [&] {
-      auto a = _a.to<scalar_t>();
+      using opmath_t = at::opmath_type<scalar_t>;
+      auto a = _a.to<opmath_t>();
       auto x = static_cast<const scalar_t *>(_x);
       auto y = static_cast<scalar_t *>(_y);
       int64_t i;
