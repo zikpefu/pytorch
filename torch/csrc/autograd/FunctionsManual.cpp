@@ -1378,8 +1378,7 @@ Tensor infinitely_differentiable_logit_backward(
   }
 }
 
-// TODO: remove kl_div_backward from aten namespace and drop the aux here
-Tensor kl_div_backward_aux(const Tensor& grad_output, const Tensor& input, const Tensor& target, int64_t reduction, bool log_target) {
+Tensor kl_div_backward(const Tensor& grad_output, const Tensor& input, const Tensor& target, int64_t reduction, bool log_target) {
   auto grad_input = (
     log_target ? -at::exp(target)
                : -target
@@ -1390,8 +1389,7 @@ Tensor kl_div_backward_aux(const Tensor& grad_output, const Tensor& input, const
   return grad_input;
 }
 
-// TODO: remove kl_div_backward from aten namespace and drop the aux here
-Tensor kl_div_target_backward_aux(const Tensor& grad_output, const Tensor& input, const Tensor& target, int64_t reduction, bool log_target) {
+Tensor kl_div_target_backward(const Tensor& grad_output, const Tensor& input, const Tensor& target, int64_t reduction, bool log_target) {
   Tensor grad_target;
   if (!log_target) {
     if (!areAnyTensorSubclassLike({input, target}) && !grad_output._is_zerotensor()) {
