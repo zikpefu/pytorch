@@ -1378,31 +1378,33 @@ Tensor infinitely_differentiable_logit_backward(
   }
 }
 
-Tensor kl_div_double_backward_grad_output(const Tensor & grad, const Tensor & input, const Tensor & target, int64_t reduction, bool log_target) {
-  auto result = kl_div_backward(grad, input, target, at::Reduction::None, log_target);
+// TODO: remove kl_div_backward from aten namespace and drop the aux here
+Tensor kl_div_backward_aux(const Tensor& grad_output, const Tensor& input, const Tensor& target, int64_t reduction, bool log_target) {
+  auto grad_input = (
+    log_target ? -at::exp(target)
+               : -target
+  ) * grad_output;
   if (reduction == at::Reduction::Mean) {
-    return result.mean();
-  } else if (reduction == at::Reduction::Sum) {
-    return result.sum();
+    grad_input /= input.numel();
   }
-  return result;
+  return grad_input;
 }
 
-// Compute derivatives for targets.
-Tensor kl_div_target_backward(Tensor grad_output, Tensor self, Tensor target, int64_t reduction, bool log_target) {
+// TODO: remove kl_div_backward from aten namespace and drop the aux here
+Tensor kl_div_target_backward_aux(const Tensor& grad_output, const Tensor& input, const Tensor& target, int64_t reduction, bool log_target) {
   Tensor grad_target;
   if (!log_target) {
-    if (!areAnyTensorSubclassLike({self, target}) && !grad_output._is_zerotensor()) {
-      grad_target = grad_output.mul(target.log().add_(1).sub_(self)).masked_fill_(target == 0, 0.);
+    if (!areAnyTensorSubclassLike({input, target}) && !grad_output._is_zerotensor()) {
+      grad_target = grad_output.mul(target.log().add_(1).sub_(input)).masked_fill_(target == 0, 0.);
     } else {
-      grad_target = grad_output.mul(target.log().add(1).sub(self)).masked_fill(target == 0, 0.);
+      grad_target = grad_output.mul(target.log().add(1).sub(input)).masked_fill(target == 0, 0.);
     }
   }
   else {
-    if (!areAnyTensorSubclassLike({self, target})) {
-      grad_target = grad_output.mul(target.add(1).sub_(self).mul_(target.exp()));
+    if (!areAnyTensorSubclassLike({input, target})) {
+      grad_target = grad_output.mul(target.add(1).sub_(input).mul_(target.exp()));
     } else {
-      grad_target = grad_output.mul(target.add(1).sub(self).mul_(target.exp()));
+      grad_target = grad_output.mul(target.add(1).sub(input).mul_(target.exp()));
     }
   }
 
@@ -1413,7 +1415,6 @@ Tensor kl_div_target_backward(Tensor grad_output, Tensor self, Tensor target, in
       grad_target.div(target.numel());
     }
   }
-
   return grad_target;
 }
 

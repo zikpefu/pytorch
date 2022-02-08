@@ -7092,16 +7092,16 @@ class TestONNXRuntime(unittest.TestCase):
     @skipIfUnsupportedMinOpsetVersion(9)
     def test_kldiv_loss(self):
 
-        x = torch.randn(5)
-        y = torch.randn(5)
+        x = torch.rand(5).log()
+        y = torch.rand(5)
         self._kldiv_loss(x, y)
 
-        x = torch.randn(2, 3, 5)
-        y = torch.randn(2, 3, 5)
+        x = torch.rand(2, 3, 5).log()
+        y = torch.rand(2, 3, 5)
         self._kldiv_loss(x, y)
 
-        x = torch.randn(2, 3, 5, 7)
-        y = torch.randn(2, 3, 5, 7)
+        x = torch.rand(2, 3, 5, 7).log()
+        y = torch.rand(2, 3, 5, 7)
         self._kldiv_loss(x, y)
 
     def _kldiv_loss(self, x, y):
@@ -7111,7 +7111,7 @@ class TestONNXRuntime(unittest.TestCase):
                 self.loss = torch.nn.KLDivLoss(reduction="none", log_target=True)
 
             def forward(self, input, target):
-                return self.loss(input, target)
+                return self.loss(input, target.log())
 
         self.run_test(KLDivLossNone(), input=(x, y))
 
@@ -7131,7 +7131,7 @@ class TestONNXRuntime(unittest.TestCase):
                 self.loss = torch.nn.KLDivLoss(reduction="sum", log_target=True)
 
             def forward(self, input, target):
-                return self.loss(input, target)
+                return self.loss(input, target.log())
 
         self.run_test(KLDivLossSum(), input=(x, y))
 
@@ -7151,7 +7151,7 @@ class TestONNXRuntime(unittest.TestCase):
                 self.loss = torch.nn.KLDivLoss(reduction="batchmean", size_average=False, log_target=True)
 
             def forward(self, input, target):
-                return self.loss(input, target)
+                return self.loss(input, target.log())
 
         self.run_test(KLDivLossMiniBatchMean(), input=(x, y))
 
