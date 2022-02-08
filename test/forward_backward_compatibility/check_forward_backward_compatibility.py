@@ -112,6 +112,8 @@ ALLOW_LIST = [
     ("aten::native_multi_head_self_attention", datetime.date(9999, 1, 1)),
     ("aten::_native_multi_head_self_attention", datetime.date(9999, 1, 1)),
     ("aten::kl_div_backward", datetime.date(2022, 2, 28)),
+    ("aten::l1_loss_backward.grad_input", datetime.date(2022, 2, 28)),
+    ("aten::smooth_l1_loss_backward.grad_input", datetime.date(2022, 2, 28)),
 ]
 
 ALLOW_LIST_COMPILED = [
