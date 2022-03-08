@@ -14,6 +14,15 @@ class TORCH_API DiagonalViewUpdate : public TsNode {
       int64_t dim1,
       int64_t dim2);
 
+  bool Equal(
+      const Value& target,
+      const Value& input,
+      int64_t offset,
+      int64_t dim1,
+      int64_t dim2) {
+    return false;
+  }
+
   std::string ToString() const override;
 
   int64_t offset() const {

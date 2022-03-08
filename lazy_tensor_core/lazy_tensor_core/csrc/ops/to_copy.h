@@ -25,6 +25,16 @@ class ToCopy : public torch::lazy::TsNode {
         non_blocking(non_blocking),
         memory_format(memory_format) {}
 
+  bool Equal(const torch::lazy::Value& self,
+             const c10::optional<at::ScalarType>& dtype,
+             const c10::optional<at::Layout>& layout,
+             const c10::optional<at::Device>& device,
+             const c10::optional<bool>& pin_memory, const bool& non_blocking,
+             const c10::optional<at::MemoryFormat>& memory_format,
+             std::vector<torch::lazy::Shape>&& shapes) {
+    return false;
+  }
+
   std::string ToString() const override {
     std::stringstream ss;
     ss << torch::lazy::TsNode::ToString();
@@ -57,9 +67,10 @@ class ToCopy : public torch::lazy::TsNode {
     return ss.str();
   }
 
-  torch::lazy::TSOpVector Lower(std::shared_ptr<torch::jit::GraphFunction> function,
-                   torch::lazy::TSLoweringContext* loctx) const override {
-        std::vector<torch::jit::NamedValue> arguments;
+  torch::lazy::TSOpVector Lower(
+      std::shared_ptr<torch::jit::GraphFunction> function,
+      torch::lazy::TSLoweringContext* loctx) const override {
+    std::vector<torch::jit::NamedValue> arguments;
     std::vector<torch::jit::NamedValue> kwarguments;
     arguments.reserve(1);
     kwarguments.reserve(6);
@@ -75,7 +86,6 @@ class ToCopy : public torch::lazy::TsNode {
     CHECK_EQ(_to_copy_out.size(), 1);
 
     return _to_copy_out;
-
   }
 
   c10::optional<at::ScalarType> dtype;

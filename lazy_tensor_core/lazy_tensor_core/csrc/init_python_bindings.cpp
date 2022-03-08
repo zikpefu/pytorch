@@ -76,7 +76,7 @@ std::string GetTensorsDump(
   for (auto& tensor : tensors) {
     torch::lazy::LazyTensorPtr lazy_tensor = torch::lazy::TryGetLtcTensor(tensor);
     values.push_back(lazy_tensor->GetIrValue());
-    nodes.push_back(values.back().node.get());
+    nodes.push_back(values.back().node().get());
   }
   return coverter(nodes);
 }
@@ -272,7 +272,7 @@ std::string GetLiveTensorsReport(size_t nodes_threshold,
   for (auto& tensor : tensors) {
     torch::lazy::Value ir_value = tensor->CurrentIrValue();
     if (ir_value) {
-      std::vector<torch::lazy::Node*> roots({ir_value.node.get()});
+      std::vector<torch::lazy::Node*> roots({ir_value.node().get()});
       auto post_order = torch::lazy::Util::ComputePostOrder(roots);
       if (post_order.size() > nodes_threshold) {
         ss << "Tensor: id=" << tensor->GetUniqueId()
@@ -675,7 +675,7 @@ void InitLtcModuleBindings(py::module m) {
           std::vector<Node*> roots;
           for (auto& tensor : tensors) {
             auto xtensor = TryGetLtcTensor(tensor);
-            roots.push_back(xtensor->GetIrValue().node.get());
+            roots.push_back(xtensor->GetIrValue().node().get());
           }
           auto post_order = Util::ComputePostOrder(roots);
           std::vector<int64_t> tensor_ids;

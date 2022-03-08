@@ -14,6 +14,8 @@ class Unsqueeze : public torch::lazy::TsNode {
   // Insert a dimension of size one at the specified position.
   Unsqueeze(const torch::lazy::Value& input, int dim);
 
+  bool Equal(const torch::lazy::Value& input, int dim) { return false; }
+
   std::string ToString() const override;
 
   int dim() const { return dim_; }

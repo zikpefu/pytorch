@@ -14,8 +14,9 @@
 #include <c10/core/ScalarType.h>
 #include <c10/util/ArrayRef.h>
 #include <torch/csrc/lazy/core/hash.h>
-#include <torch/csrc/lazy/core/shape.h>
 #include <torch/csrc/lazy/core/ir_metadata.h>
+#include <torch/csrc/lazy/core/metrics.h>
+#include <torch/csrc/lazy/core/shape.h>
 #include <c10/util/Flags.h>
 
 C10_DECLARE_bool(ltc_enable_dynamic_shapes);
@@ -65,8 +66,6 @@ inline std::ostream& operator<<(std::ostream& stream, const OpKind& op) {
   return stream;
 }
 
-using OpList = c10::ArrayRef<Value>;
-
 // A node in the graph. Nodes for operations which requires extra data to be
 // stored for lowering, should inherit from this class and add operation
 // specific member there. For example, a constant might create a new
@@ -75,18 +74,16 @@ using OpList = c10::ArrayRef<Value>;
 // client data handle in it.
 class TORCH_API Node {
  public:
+  static std::vector<NodePtr> last_node_list;
+  static std::vector<NodePtr> node_list;
+
   static bool enableDynamicShape();
 
-  // Creates a new node with the given op name. The op is a unique identifier
-  // for the operation. The num_outputs tells how many outputs a given operation
-  // generates.
-  //
-  // None leaf node's node_hash does not contains shape information always.
-  // So we pass in the hash value rather than a function.
-  Node(OpKind op, size_t num_outputs, hash_t node_hash, std::function<hash_t(bool)> dag_hash_fn);
+  static size_t NextNodeListIndex();
 
-  // Contructor used to create leaf nodes.
-  Node(OpKind op, size_t num_outputs, std::function<hash_t(bool)> node_hash_fn);
+  static void PushIntoNodeList(NodePtr node);
+
+  static void ClearNodeList();
 
   virtual ~Node();
 
@@ -101,6 +98,10 @@ class TORCH_API Node {
   virtual c10::ArrayRef<Shape> shapes() const = 0;
 
   virtual const Shape& shape(size_t output_index = 0) const = 0;
+
+  size_t node_list_index() const {
+    return node_list_index_;
+  }
 
   virtual const std::vector<Output>& operands() const = 0;
 
@@ -138,6 +139,22 @@ class TORCH_API Node {
 
   virtual std::string ToString() const;
 
+ protected:
+  // Creates a new node with the given op name. The op is a unique identifier
+  // for the operation. The num_outputs tells how many outputs a given operation
+  // generates.
+  //
+  // None leaf node's node_hash does not contains shape information always.
+  // So we pass in the hash value rather than a function.
+  Node(
+      OpKind op,
+      size_t num_outputs,
+      hash_t node_hash,
+      std::function<hash_t(bool)> dag_hash_fn);
+
+  // Contructor used to create leaf nodes.
+  Node(OpKind op, size_t num_outputs, std::function<hash_t(bool)> node_hash_fn);
+
  private:
   // The ID of the operation captured by this node.
   OpKind op_;
@@ -161,19 +178,42 @@ class TORCH_API Node {
   // The IR framework user can attach a user defined metadata object deriving
   // from UserMetaData.
   std::shared_ptr<UserMetaData> user_metadata_;
+
+  size_t node_list_index_;
 };
-
-
 
 inline std::ostream& operator<<(std::ostream& stream, const Node& node) {
   stream << node.ToString();
   return stream;
 }
 
+using OpList = c10::ArrayRef<Value>;
+
+class Std;
+
+template <typename T, typename... Args>
+NodePtr LookupNode(Args... args) {
+  size_t currrent_index = Node::node_list.size();
+  if (currrent_index >= Node::last_node_list.size()) {
+    return nullptr;
+  }
+  NodePtr node = Node::last_node_list[currrent_index];
+  T* ptr = dynamic_cast<T*>(node.get());
+  return (ptr && ptr->Equal(std::forward<Args>(args)...)) ? node : nullptr;
+}
+
 // TODO(alanwaketan): Support r-value reference argument type.
 template <typename T, typename... Args>
 NodePtr MakeNode(Args&&... args) {
-  return std::make_shared<T>(std::forward<Args>(args)...);
+  NodePtr node = LookupNode<T>(args...);
+  if (!node) {
+    TORCH_LAZY_COUNTER("IrNodeCreated",1);
+    node = std::make_shared<T>(std::forward<Args>(args)...);
+  } else {
+    TORCH_LAZY_COUNTER("IrNodeReused",1);
+  }
+  Node::PushIntoNodeList(node);
+  return node;
 }
 
 template <typename T>
@@ -233,30 +273,40 @@ using OutputMap = std::unordered_map<Output, T, Output::Hasher>;
 // Represents an input/operand for a Node object.
 struct TORCH_API Value {
   Value() = default;
-  /* implicit */ Value(NodePtr&& node, size_t index = 0) : node(std::move(node)), index(index) {}
-  /* implicit */ Value(const NodePtr& node, size_t index = 0) : node(node), index(index) {}
+  /* implicit */ Value(NodePtr&& node, size_t index = 0)
+      : node_list_index_(node->node_list_index()), index(index) {}
+  /* implicit */ Value(const NodePtr& node, size_t index = 0)
+      : node_list_index_(node->node_list_index()), index(index) {}
 
   hash_t hash() const;
   hash_t hash_with_sizes() const;
   hash_t hash_without_sizes() const;
 
   operator bool() const {
-    return node != nullptr;
+    return node_list_index_.has_value();
+  }
+
+  NodePtr node() const {
+    TORCH_CHECK(
+        node_list_index_.has_value() &&
+            node_list_index_ < Node::node_list.size(),
+        "Invalid node_list_index_ in Value");
+    return Node::node_list[node_list_index_.value()]; //.lock();
   }
 
   operator Output() const {
-    return Output(node.get(), index);
+    return Output(node().get(), index);
   }
 
   const Shape& shape() const {
-    return node->shape(index);
+    return node()->shape(index);
   }
 
   Node* operator->() const {
-    return node.get();
+    return node().get();
   }
 
-  NodePtr node;
+  c10::optional<size_t> node_list_index_;
   size_t index = 0;
 };
 

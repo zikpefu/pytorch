@@ -12,6 +12,13 @@ class TORCH_API NarrowViewUpdate : public TsNode {
       const Value& source,
       c10::ArrayRef<int64_t> base_indices);
 
+  bool Equal(
+      const Value& input,
+      const Value& source,
+      c10::ArrayRef<int64_t> base_indices) {
+    return false;
+  }
+
   std::string ToString() const override;
 
   const std::vector<int64_t>& base_indices() const {

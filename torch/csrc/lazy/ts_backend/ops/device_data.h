@@ -10,6 +10,10 @@ class TORCH_API DeviceData : public TsNode {
  public:
   explicit DeviceData(std::shared_ptr<BackendData> data);
 
+  bool Equal(std::shared_ptr<BackendData> data) {
+    return false;
+  }
+
   std::string ToString() const override;
 
   const std::shared_ptr<BackendData>& data() const {

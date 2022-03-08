@@ -9,6 +9,10 @@ class TORCH_API Resize : public TsNode {
  public:
   Resize(const Value& input, std::vector<int64_t> size);
 
+  bool Equal(const Value& input, std::vector<int64_t> size) {
+    return false;
+  }
+
   std::string ToString() const override;
 
   const std::vector<int64_t>& size() const {

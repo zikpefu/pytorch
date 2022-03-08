@@ -11,6 +11,10 @@ class TORCH_API View : public TsNode {
  public:
   View(const Value& input, std::vector<int64_t> output_size);
 
+  bool Equal(const Value& input, std::vector<int64_t> output_size) {
+    return false;
+  }
+
   std::string ToString() const override;
 
   const std::vector<int64_t>& output_size() const {

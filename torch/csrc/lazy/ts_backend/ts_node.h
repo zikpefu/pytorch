@@ -39,6 +39,40 @@ class TORCH_API TsNode : public lazy::Node {
 
   ~TsNode() override = default;
 
+  bool Equal(
+      OpKind op,
+      OpList operands,
+      std::vector<Shape>&& shapes,
+      size_t num_outputs = 1,
+      hash_t hash_seed = kHashSeed) {
+    return false;
+  }
+
+  bool Equal(
+      OpKind op,
+      OpList operands,
+      const std::function<Shape()>& shape_fn,
+      size_t num_outputs = 1,
+      hash_t hash_seed = kHashSeed) {
+    return false;
+  }
+
+  bool Equal(
+      OpKind op,
+      OpList operands,
+      size_t num_outputs = 1,
+      hash_t hash_seed = kHashSeed) {
+    return false;
+  }
+
+  bool Equal(
+      OpKind op,
+      Shape shape,
+      size_t num_outputs = 1,
+      hash_t hash_seed = kHashSeed) {
+    return false;
+  }
+
   Shape GetOpShape(
       const std::function<Shape()>& shape_fn) const;
 
@@ -100,6 +134,10 @@ const OpKind tensor_list_opkind = OpKind::Get("lazy_tensors::tensor_list");
 struct TORCH_API TensorList : public TsNode {
   TensorList() = delete;
   TensorList(OpList values);
+
+  bool Equal(OpList values) {
+    return false;
+  }
 
   TSOpVector Lower(std::shared_ptr<torch::jit::GraphFunction> function,
                    TSLoweringContext* loctx) const override;

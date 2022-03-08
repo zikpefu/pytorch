@@ -15,6 +15,14 @@ class TORCH_API Scalar : public TsNode {
   Scalar(const at::Scalar& value, Shape shape);
   Scalar(const at::Scalar& value, c10::ScalarType type);
 
+  bool Equal(const at::Scalar& value, Shape shape) {
+    return false;
+  }
+
+  bool Equal(const at::Scalar& value, c10::ScalarType type) {
+    return false;
+  }
+
   std::string ToString() const override;
 
   const at::Scalar& value() const {

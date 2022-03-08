@@ -59,7 +59,7 @@ TsNode::TsNode(OpKind op, OpList operands, std::vector<Shape>&& shapes,
       continue;
     }
 
-    AddOperand(operand.node, operand.index);
+    AddOperand(operand.node(), operand.index);
   }
 }
 

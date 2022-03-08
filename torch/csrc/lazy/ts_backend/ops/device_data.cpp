@@ -12,7 +12,7 @@ DeviceData::DeviceData(std::shared_ptr<BackendData> data)
           ltc_device_data,
           data->shape(),
           /*num_outputs=*/1,
-          /*hash_seed=*/static_cast<uint32_t>(101)),
+          /*hash_seed=*/Node::NextNodeListIndex()),
       data_(std::move(data)) {}
 
 std::string DeviceData::ToString() const {

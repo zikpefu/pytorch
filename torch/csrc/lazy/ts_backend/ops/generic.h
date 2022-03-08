@@ -34,6 +34,15 @@ class TORCH_API Generic : public TsNode {
 
   Generic(OpKind op, Shape shape, size_t num_outputs, hash_t hash_seed);
 
+  bool Equal(
+      OpKind op,
+      OpList operands,
+      Shape shape,
+      size_t num_outputs = 1,
+      hash_t hash_seed = static_cast<uint32_t>(0x5a2d296e9)) {
+    return false;
+  }
+
  private:
   hash_t hash_seed_;
 };

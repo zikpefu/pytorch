@@ -9,6 +9,10 @@ class TORCH_API Permute : public TsNode {
  public:
   Permute(const Value& input, std::vector<int64_t> dims);
 
+  bool Equal(const Value& input, std::vector<int64_t> dims) {
+    return false;
+  }
+
   std::string ToString() const override;
 
   const std::vector<int64_t>& dims() const {

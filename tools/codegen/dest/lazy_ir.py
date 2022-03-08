@@ -8,7 +8,7 @@ from tools.codegen.api.types import (BaseCType, OptionalCType,
                                      VectorCType, kernel_signature)
 import tools.codegen.api.dispatcher as dispatcher
 from tools.codegen.api.lazy import LazyIrSchema, LazyArgument, isValueType, tensorListValueT
-from tools.codegen.dest.lazy_ts_lowering import ts_lowering_body
+from tools.codegen.dest.lazy_ts_lowering import ts_lowering_body, ts_equal_method_body
 
 def node_ctor_arg_rvalue_string(arg: LazyArgument) -> str:
     """
@@ -97,6 +97,10 @@ class LazyIR(ABC):
     def lowering_body(self, f: Union[NativeFunctionsGroup, NativeFunction]) -> str:
         pass
 
+    @abstractmethod
+    def equal_method_body(self, f: Union[NativeFunctionsGroup, NativeFunction]) -> str:
+        pass
+
     def gen(self, f: Union[NativeFunctionsGroup, NativeFunction]) -> List[str]:
         # for now, we just want one IR class decl and soon after also the method defs
         # and we use the functional version not out/inplace.
@@ -152,6 +156,10 @@ class {schema.node_name} : public {self.node_base} {{
     {has_optional_defs}
   }}
 
+  bool Equal({node_ctor_args}, std::vector<Shape>&& shapes) {{
+    {self.equal_method_body(f)}
+  }}
+
   std::string ToString() const override {{
     std::stringstream ss;
     ss << {self.node_base}::ToString();
@@ -180,6 +188,9 @@ class TSLazyIR(LazyIR):
 
     def lowering_body(self, f: Union[NativeFunctionsGroup, NativeFunction]) -> str:
         return ts_lowering_body(f)
+
+    def equal_method_body(self, f: Union[NativeFunctionsGroup, NativeFunction]) -> str:
+        return ts_equal_method_body(f)
 
 
 def lazy_tensor_decls(value_args: List[LazyArgument], tensor_class: str) -> str:

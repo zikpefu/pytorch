@@ -197,6 +197,12 @@ void LazyTensor::SetIrValue(Value ir_value) {
   }
 }
 
+void LazyTensor::ResetIrValue() {
+  AssignIrValue(Value());
+  data()->view = nullptr;
+  data()->tensor_data = c10::nullopt;
+}
+
 void LazyTensor::SetInPlaceIrValue(Value ir_value) {
   auto tensor_shape = shape();
   if (tensor_shape.Get().scalar_type() !=
@@ -216,7 +222,7 @@ void LazyTensor::TryLimitGraphSize() {
       LazyGraphExecutor::Get()->IncTrimCounter() %
               FLAGS_torch_lazy_trim_graph_check_frequency ==
           0) {
-    size_t graph_size = Util::GetGraphSize({data()->ir_value.node.get()});
+    size_t graph_size = Util::GetGraphSize({data()->ir_value.node().get()});
     if (graph_size > FLAGS_torch_lazy_trim_graph_size) {
       TORCH_LAZY_COUNTER("TrimIrGraph", 1);
       ApplyPendingGraph();

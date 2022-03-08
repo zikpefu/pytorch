@@ -16,6 +16,10 @@ class TestLeafNode : public Node {
         param_(param) {}
   ~TestLeafNode() override = default;
 
+  bool Equal(size_t param) {
+    return false;
+  }
+
   const std::vector<Output>& operands() const override {
     TORCH_INTERNAL_ASSERT(false, "Can't access operands of leaf node");
   }

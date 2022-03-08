@@ -14,6 +14,15 @@ class TORCH_API Select : public TsNode {
       int64_t end,
       int64_t stride);
 
+  bool Equal(
+      const Value& input,
+      int64_t dim,
+      int64_t start,
+      int64_t end,
+      int64_t stride) {
+    return false;
+  }
+
   std::string ToString() const override;
 
   int64_t dim() const {

@@ -98,7 +98,7 @@ std::string DebugUtil::GetTensorsGraphInfo(c10::ArrayRef<torch::lazy::LazyTensor
       const torch::lazy::LazyTensorPtr& tensor = tensors[index];
       torch::lazy::Value ir_value = tensor->CurrentIrValue();
       if (ir_value) {
-        root_nodes.push_back(ir_value.node.get());
+        root_nodes.push_back(ir_value.node().get());
         root_hashes.push_back(ir_value.hash());
         root_values.push_back(std::move(ir_value));
         unique_device.set(tensor->GetDevice());
@@ -108,7 +108,7 @@ std::string DebugUtil::GetTensorsGraphInfo(c10::ArrayRef<torch::lazy::LazyTensor
     for (auto& tensor : tensors) {
       torch::lazy::Value ir_value = tensor->CurrentIrValue();
       if (ir_value) {
-        root_nodes.push_back(ir_value.node.get());
+        root_nodes.push_back(ir_value.node().get());
         root_hashes.push_back(ir_value.hash());
         root_values.push_back(std::move(ir_value));
         unique_device.set(tensor->GetDevice());
