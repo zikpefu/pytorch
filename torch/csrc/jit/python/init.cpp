@@ -1332,7 +1332,19 @@ void initJITBindings(PyObject* module) {
           })
       .def_property_readonly(
           "is_mutable", [](FunctionSchema& self) { return self.is_mutable(); });
+
   py::class_<Argument>(m, "Argument")
+      .def("__repr__", [](Argument& self) {
+        std::ostringstream s;
+        if (self.alias_info() && !self.alias_info()->isWrite()) {
+          s << "const ";
+        }
+        s << *self.type();
+        if (self.alias_info()) {
+          s << "&";
+        }
+        s << " " << self.name();
+        return s.str();})
       .def_property_readonly("name", [](Argument& self) { return self.name(); })
       .def_property_readonly("type", [](Argument& self) { return self.type(); })
       .def_property_readonly(
@@ -1349,14 +1361,15 @@ void initJITBindings(PyObject* module) {
             IValue v = *self.default_value();
             return toPyObject(std::move(v));
           })
-      .def(
+      .def_property_readonly(
           "has_default_value",
           [](Argument& self) -> py::bool_ {
             return self.default_value().has_value();
           })
       .def_property_readonly("kwarg_only", [](Argument& self) -> bool {
-        return self.kwarg_only();
-      });
+        return self.kwarg_only();})
+      .def_property_readonly(
+          "is_mutable", [](Argument& self) -> bool { return self.alias_info() && self.alias_info()->isWrite(); });
   m.def("_jit_get_all_schemas", []() {
     const std::vector<std::shared_ptr<Operator>>& operations =
         getAllOperators();

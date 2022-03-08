@@ -11,7 +11,6 @@ import torch._utils_internal
 # Query `hasattr` only once.
 _SET_GLOBAL_FLAGS = hasattr(sys, 'getdlopenflags') and hasattr(sys, 'setdlopenflags')
 
-
 @contextlib.contextmanager
 def dl_open_guard():
     """
@@ -65,7 +64,17 @@ class OpOverload:
     def op(self):
         return self._op
 
-    # TODO: add more methods to expose information about input and output arguments
+    # returns a list of torch._C.Argument class objects
+    # users can query the following on each Argument object:
+    # name, type, N, kwarg_only, has_default_value, default_value, is_mutable
+    @property
+    def inputs(self):
+        return tuple(self._schema.arguments)
+
+    # returns a list of Argument class objects
+    @property
+    def returns(self):
+        return tuple(self._schema.returns)
 
 # OpOverloadPacket class contains pointer to a base unresolved operator that doesn't correspond to a specific operator
 # You can obtain an OpOverload object through attribute query.
@@ -131,7 +140,7 @@ class OpOverloadPacket:
             return overload
         except RuntimeError:
             raise AttributeError(
-                "The underlying op of '{}' has no overload name '{}'".format(str(self), key)
+                "The underlying op of '{}' has no overload name '{}'".format(str(self), use_key)
             ) from None
 
     def __call__(self, *args, **kwargs):
