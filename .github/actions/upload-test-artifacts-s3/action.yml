@@ -1,11 +1,8 @@
-name: Upload test artifacts
+name: Upload test artifacts to S3
 
 description: Upload various artifacts produced by our testing process
 
 inputs:
-  use-gha:
-    description: If set to any value, upload GHA. Otherwise upload to S3.
-    required: false
   file-suffix:
     description: Suffix to add to the filename of the artifacts
     required: true
@@ -56,7 +53,6 @@ runs:
     # S3 upload
     - name: Store Test Downloaded JSONs on S3
       uses: seemethere/upload-artifact-s3@v3
-      if: ${{ !inputs.use-gha }}
       with:
         retention-days: 14
         if-no-files-found: warn
@@ -64,26 +60,7 @@ runs:
 
     - name: Store Test Reports on S3
       uses: seemethere/upload-artifact-s3@v3
-      if: ${{ !inputs.use-gha }}
       with:
-        retention-days: 14
-        if-no-files-found: error
-        path: test-reports-*.zip
-
-    # GHA upload
-    - name: Store Test Downloaded JSONs on Github
-      uses: actions/upload-artifact@v2
-      if: inputs.use-gha
-      with:
-        retention-days: 14
-        if-no-files-found: warn
-        path: test-jsons-*.zip
-
-    - name: Store Test Reports on Github
-      uses: actions/upload-artifact@v2
-      if: inputs.use-gha
-      with:
-        name: test-reports
         retention-days: 14
         if-no-files-found: error
         path: test-reports-*.zip
