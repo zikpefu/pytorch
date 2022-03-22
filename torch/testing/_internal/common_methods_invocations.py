@@ -6392,6 +6392,23 @@ def sample_inputs_masked_softmax(op_info, device, dtype, requires_grad, with_dty
     return inputs
 
 
+def sample_inputs_masked_logaddexp(op_info, device, dtype, requires_grad, **kwargs):
+    """Sample inputs for masked logaddexp.
+    """
+    inputs: List[SampleInput] = []
+    shapes = [(S,), (S, S), (S, M, S)]
+    masks_list = [list(_generate_masked_op_mask(shape, device, **kwargs)) for shape in shapes]
+
+    for shape, masks in zip(shapes, masks_list):
+        for mask in masks:
+            input = make_tensor(shape, device=device, dtype=dtype, requires_grad=requires_grad)
+            other = make_tensor(shape, device=device, dtype=dtype, requires_grad=requires_grad)
+            inputs.append(SampleInput(input, args=(other,),
+                                      kwargs=dict(mask=mask)))
+
+    return inputs
+
+
 def sample_inputs_masked_normalize(op_info, device, dtype, requires_grad, **kwargs):
     """Sample inputs for masked normalize.
     """
@@ -15525,6 +15542,35 @@ op_db: List[OpInfo] = [
         ),
         gradcheck_wrapper=gradcheck_wrapper_masked_operation,
         supports_out=False),
+    OpInfo(
+        '_masked.logaddexp',
+        dtypes=floating_types_and(torch.bfloat16),
+        supports_out=False,
+        supports_forward_ad=True,
+        supports_fwgrad_bwgrad=True,
+        skips=(
+            # NotSupportedError: Compiled functions can't ... use keyword-only arguments with defaults
+            DecorateInfo(unittest.skip("Skipped!"), 'TestJit', 'test_variant_consistency_jit'),
+        ),
+        sample_inputs_func=sample_inputs_masked_logaddexp,
+        gradcheck_wrapper=gradcheck_wrapper_masked_operation
+    ),
+    OpInfo(
+        '_masked.logsumexp',
+        dtypes=all_types_and(torch.bfloat16),
+        dtypesIfCUDA=all_types_and(torch.float16, torch.bfloat16),
+        method_variant=None,
+        supports_out=False,
+        supports_forward_ad=True,
+        supports_fwgrad_bwgrad=True,
+        skips=(
+            # NotSupportedError: Compiled functions can't ... use keyword-only arguments with defaults
+            DecorateInfo(unittest.skip("Skipped!"), 'TestJit', 'test_variant_consistency_jit'),
+        ),
+        # like softmax, dim is required
+        sample_inputs_func=sample_inputs_masked_softmax,
+        gradcheck_wrapper=gradcheck_wrapper_masked_operation
+    ),
     OpInfo(
         "nn.functional.ctc_loss",
         ref=_NOTHING,
