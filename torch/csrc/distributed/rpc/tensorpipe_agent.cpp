@@ -398,6 +398,8 @@ TensorPipeAgent::TensorPipeAgent(
           std::move(cb),
           std::chrono::milliseconds(
               (long)(opts.rpcTimeoutSeconds * kSecToMsConversion))),
+      store_(store),
+      isStaticGroup_(worldSize.has_value()),
       opts_(std::move(opts)),
       reverseDeviceMaps_(std::move(reverseDeviceMaps)),
       devices_(std::move(devices)),
@@ -406,8 +408,8 @@ TensorPipeAgent::TensorPipeAgent(
           tensorpipe::ContextOptions().name(workerInfo_.name_))),
       rankToNameStore_("names", store),
       nameToAddressStore_("addrs", store),
-      shutdownStore_("shutdown", store),
-      isStaticGroup_(worldSize.has_value()) {
+      shutdownStore_("shutdown", store) {
+  std::cout << "HELLO IN CONSTRUCTOR" << std::endl;
   if (isStaticGroup_) {
     worldSize_ = worldSize.value();
   }
@@ -1061,6 +1063,16 @@ void TensorPipeAgent::join(bool shutdown) {
       // It is enough to wait for there to be no more active client calls, since
       // each server call corresponds to a client call for some other worker.
       callCountCV_.wait(lock, [this] { return clientActiveCalls_ == 0; });
+
+      // With dynamic RPC groups we are only concerned with active calls on
+      // local worker ActiveCallCount is 0 at this point and we will shutdown
+      // (any future calls will be dropped)
+      if (!isStaticGroup_) {
+        if (shutdown) {
+          shuttingDown_ = true;
+        }
+        break;
+      }
       // We'd like to immediately proceed with the allreduce, but it's a call
       // that may block for some time, as it waits for other workers to also
       // complete all their active client calls. While we call allreduce we must
@@ -1236,6 +1248,12 @@ void TensorPipeAgent::updateGroupMembership(
   }
   // TODO: Rank with workerInfo is leaving, update internal mappings
   else {
+    std::cout << "is leaving" << std::endl;
+    workerIdToInfo_.erase(id);
+    workerNameToInfo_.erase(name);
+    workerNameToURL_.erase(name);
+
+    // TODO: test for
   }
 }
 
@@ -1407,6 +1425,10 @@ DeviceMap TensorPipeAgent::getDeviceMap(const WorkerInfo& dst) const {
     return {};
   }
   return it->second;
+}
+
+const c10::intrusive_ptr<::c10d::Store>& TensorPipeAgent::getStore() const {
+  return store_;
 }
 
 TensorPipeRpcBackendOptions TensorPipeAgent::getBackendOptions() const {
