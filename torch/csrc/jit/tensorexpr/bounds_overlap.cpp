@@ -6,6 +6,73 @@ namespace jit {
 namespace tensorexpr {
 namespace analysis {
 
+// Returns true if the given expression includes a "Sub" term.
+bool hasSub(ExprPtr e) {
+  return !NodeFinder<Sub>::find(e).empty();
+}
+
+// Returns true if the given expression includes a "Div" term.
+bool hasDiv(ExprPtr e) {
+  return !NodeFinder<Div>::find(e).empty();
+}
+
+// Returns true if all immediates in the given expression are positive.
+bool allImmsArePositive(ExprPtr e) {
+#define TYPE_CASE(Type, Name)                                 \
+  {                                                           \
+    auto imms = NodeFinder<Name##Imm>::find(e);               \
+    for (const auto& imm : imms) {                            \
+      if (immediateIsNegative(imm) || immediateIsZero(imm)) { \
+        return false;                                         \
+      }                                                       \
+    }                                                         \
+  }
+  AT_FORALL_SCALAR_TYPES_AND2(Half, BFloat16, TYPE_CASE);
+#undef TYPE_CASE
+  {
+    auto imms = NodeFinder<BoolImm>::find(e);
+    for (const auto& imm : imms) {
+      if (immediateIsZero(imm)) {
+        return false;
+      }
+    }
+  }
+  return true;
+}
+
+// Returns true if the given expression is guaranteed to be positive.
+//
+// If the given expression is constant, this checks if the constant value is
+// positive.
+//
+// If the given expression is not constant, we use the following conservative
+// approximation to identify those that are guaranteed to be positive.
+//
+// Assumption:
+//   * The variables in the given expression are always positive.
+//
+// The only way for the given expression to be negative is if it includes
+// at least one of:
+//     * "subtract" term.
+//     * a negative immediate value.
+//
+// The only way for the given expression to be zero is if it includes at least
+// one of:
+//     * "subtract" term.
+//     * "div" term.
+//     * a zero immediate value.
+//
+// The expression could involve multiple subtract terms and negative
+// immediate values and end up being positive. But even if one of them is
+// present we conservatively assume that it can be negative.
+bool mustBePositive(ExprPtr e) {
+  if (e->isConstant()) {
+    int e_val = immediateAs<int>(e);
+    return e_val > 0;
+  }
+  return !hasSub(e) && !hasDiv(e) && allImmsArePositive(e);
+}
+
 OverlapKind boundOverlap(Bound a, Bound b) {
   // If they're equal they're equal.
   bool startEqual = exprEquals(a.start, b.start);
@@ -14,16 +81,30 @@ OverlapKind boundOverlap(Bound a, Bound b) {
     return ContainedOrEqual;
   }
 
+  // We have to figure out if the bounds fall under the following 2 cases:
+  // 1. a is before b
+  //      a.start ... a.end ... b.start ... b.end
+  // 2. b is before a
+  //      b.start ... b.end ... a.start ... a.end
+  //
+  // So, we compute "a.start - b.end" and "b.start - a.end". If even one of
+  // those is positive, then it is guaranteed that the bounds do not overlap.
+  //
+  // If the diff is a constant, then we can directly check if the constant is
+  // positive. If the diff is not a constant, then it will be made of
+  // variables that correspond to the bounds of buffers involved. These buffer
+  // bounds can never be negative. So, we check if the given expression is
+  // guaranteed to be positive under the assumption that the variables involved
+  // are never negative.
+
   ExprPtr lowDiff = IRSimplifier::simplify(alloc<Sub>(a.start, b.end));
   ExprPtr highDiff = IRSimplifier::simplify(alloc<Sub>(b.start, a.end));
 
-  if (lowDiff->isConstant() && highDiff->isConstant()) {
-    int low = immediateAs<int>(lowDiff);
-    int high = immediateAs<int>(highDiff);
-    // No overlap.
-    if (low > 0 || high > 0) {
-      return NoOverlap;
-    }
+  if (mustBePositive(lowDiff)) {
+    return NoOverlap;
+  }
+  if (mustBePositive(highDiff)) {
+    return NoOverlap;
   }
 
   ExprPtr diff_start = IRSimplifier::simplify(alloc<Sub>(b.start, a.start));
