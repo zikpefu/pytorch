@@ -420,6 +420,7 @@ class TestShardedTensorChunked(ShardedTensorTestBase):
         st = sharded_tensor.empty(spec, 10, 20, init_rrefs=True)
         st_metadata = st.metadata()
         self.assertEqual(torch.Size([10, 20]), st_metadata.size)
+        self.assertEqual(torch.Size([10, 20]), st.size())
         self.assertEqual(torch.float, st.dtype)
         self.assertEqual(torch.strided, st.layout)
         self.assertEqual(False, st.requires_grad)
@@ -448,7 +449,7 @@ class TestShardedTensorChunked(ShardedTensorTestBase):
 
         # test read only properties, they're read only as we can't simply change
         # the global metadata without changing the underlying shard's properties
-        with self.assertRaisesRegex(AttributeError, "can't set attribute"):
+        with self.assertRaisesRegex(RuntimeError, "torch function '__set__'"):
             st.requires_grad = True
 
     @with_comms
@@ -907,7 +908,7 @@ class TestShardedTensorChunked(ShardedTensorTestBase):
 
         spec = ChunkShardingSpec(dim=0, placements=["rank:0/cuda:1"])
         with self.assertRaisesRegex(ValueError, 'Only torch.strided layout is currently supported'):
-            sharded_tensor.empty(spec, 10, 20, layout=torch.sparse)
+            sharded_tensor.empty(spec, 10, 20, layout=torch.sparse_coo)
 
         spec = ChunkShardingSpec(dim=0, placements=["rank:0/cuda:1"])
         with self.assertRaisesRegex(ValueError, 'Only torch.contiguous_format memory_format is currently supported'):
@@ -1026,9 +1027,7 @@ class TestShardedTensorChunked(ShardedTensorTestBase):
 
         # Test with invalid input
         st = sharded_tensor.empty(spec, (10, 20), init_rrefs=True)
-        with self.assertRaisesRegex(ValueError, 'must be within the range of tensor dimensions \\[0, 2\\)'):
-            st.size(-1)
-        with self.assertRaisesRegex(ValueError, 'must be within the range of tensor dimensions \\[0, 2\\)'):
+        with self.assertRaisesRegex(IndexError, 'Dimension out of range'):
             st.size(2)
 
         with self.assertRaises(TypeError):
