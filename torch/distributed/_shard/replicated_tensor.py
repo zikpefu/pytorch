@@ -5,7 +5,6 @@ from torch.overrides import get_default_nowrap_functions
 from torch.distributed._shard.sharded_tensor.api import ShardedTensor
 from torch.distributed import distributed_c10d
 
-
 class ReplicatedTensor(torch.Tensor):
     """
     ReplicatedTensor represents a tensor which is replicated across the `world_size` and
@@ -33,13 +32,21 @@ class ReplicatedTensor(torch.Tensor):
     def __new__(cls, data=None, process_group=None):
         if data is None:
             data = torch.empty(0)
-        r = torch.Tensor._make_subclass(cls, data)      # type: ignore[arg-type]
+        r = torch.Tensor._make_subclass(cls, data, data.requires_grad)      # type: ignore[arg-type]
         r.process_group = (     # type: ignore[attr-defined]
             process_group
             if process_group is not None
             else distributed_c10d._get_default_group()
         )
         return r
+
+    def __deepcopy__(self, memo):
+        if id(self) in memo:
+            return memo[id(self)]
+        else:
+            result = type(self)(self.data.clone(memory_format=torch.preserve_format), self.process_group)
+            memo[id(self)] = result
+            return result
 
     def __repr__(self):
         return f"ReplicatedTensor({super(ReplicatedTensor, self).__repr__()})"
@@ -90,7 +97,7 @@ class ReplicatedTensor(torch.Tensor):
                 # if all operands are ReplicatedTensors and does not get dispatched to ShardedTensor
                 # __torch_function__, result is a torch.Tensor, then we convert and return a
                 # ReplicatedTensor according to our inter-op rule
-                rs = rs.as_subclass(cls)        # type: ignore[arg-type]
+                rs = rs.as_subclass(ReplicatedTensor)        # type: ignore[arg-type]
                 # propagate the process_group field to result
                 rs.process_group = replicated_pg        # type: ignore[attr-defined]
 
@@ -123,3 +130,64 @@ class ReplicatedTensor(torch.Tensor):
                     f"ReplicatedTensor have different values on rank {current_rank} and {rank}")
 
         return True
+
+    def __setstate__(self, state):
+        with torch._C.DisableTorchFunction():
+            self.data = state
+            self.requires_grad = state.requires_grad
+            from torch.distributed._shard.api import _get_current_process_group
+            self.process_group = _get_current_process_group()
+
+    def __getstate__(self):
+        return self.data
+
+class ReplicatedParameter(ReplicatedTensor, torch.nn.Parameter):
+    """
+    ReplicatedParameter is essentially a wrapper around ReplicatedTensor and
+    torch.nn.Parameter. There are two goals here:
+
+    1.  ReplicatedParameter is an instance of ReplicatedTensor to ensure
+        ReplicatedTensor operator dispatch works accordingly.
+    2.  ReplicatedParamerer is an instance of torch.nn.Parameter so that it
+        behaves as a regular torch.nn.Parameter when used within an nn.Module.
+    """
+
+    def __new__(cls, tensor: torch.Tensor, requires_grad=True, process_group=None):
+        process_group = (     # type: ignore[attr-defined]
+            process_group
+            if process_group is not None
+            else distributed_c10d._get_default_group()
+        )
+
+        replicated_tensor = ReplicatedTensor(tensor, process_group)
+        r = torch.Tensor._make_subclass(cls, replicated_tensor, requires_grad)      # type: ignore[arg-type]
+        r.process_group = process_group      # type: ignore[attr-defined]
+
+        # Ensure both tensors share grads.
+        with torch._C.DisableTorchFunction():
+            r.grad = tensor.grad
+            if tensor.grad is None:
+                r.grad = torch.zeros_like(tensor)
+                tensor.grad = r.grad
+        return r
+
+    def __repr__(self):
+        return f"ReplicatedParameter({super(ReplicatedParameter, self).__repr__()})"
+
+    def __setstate__(self, state):
+        with torch._C.DisableTorchFunction():
+            self.data = state
+            self.requires_grad = state.requires_grad
+            from torch.distributed._shard.api import _get_current_process_group
+            self.process_group = _get_current_process_group()
+
+    def __getstate__(self):
+        return self.data
+
+    def __deepcopy__(self, memo):
+        if id(self) in memo:
+            return memo[id(self)]
+        else:
+            result = type(self)(self.data.clone(memory_format=torch.preserve_format), self.requires_grad, self.process_group)
+            memo[id(self)] = result
+            return result
