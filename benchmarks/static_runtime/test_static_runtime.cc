@@ -3073,3 +3073,32 @@ TEST(StaticRuntime, MoveCtor) {
   auto actual = new_runtime(args);
   compareResults(expected, actual);
 }
+
+namespace {
+void testClone(MemoryPlannerAlgorithm algorithm) {
+  auto mod = getDeepAndWideSciptModel();
+  std::vector<IValue> args{
+      at::randn({1, 1, 32}), at::randn({1, 1, 32}), at::randn({1, 50})};
+  auto smod = StaticModule(
+      mod,
+      /*is_frozen=*/false,
+      StaticModuleOptions{
+          .enable_out_variant = true,
+          .optimize_memory = true,
+          .memory_planner_algorithm = algorithm});
+
+  auto& runtime = smod.runtime();
+  auto cloned_runtime = runtime.clone();
+  compareResults(runtime(args), cloned_runtime(args));
+  auto cloned_from_warm_runtime = runtime.clone();
+  compareResults(runtime(args), cloned_from_warm_runtime(args));
+}
+} // namespace
+
+TEST(StaticRuntime, CloneWithRegularMemoryPlanner) {
+  testClone(MemoryPlannerAlgorithm::kStandardResizing);
+}
+
+TEST(StaticRuntime, CloneWithPrecomputedOffsets) {
+  testClone(MemoryPlannerAlgorithm::kPrecomputedOffsets);
+}
