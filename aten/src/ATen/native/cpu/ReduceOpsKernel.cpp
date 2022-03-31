@@ -84,11 +84,16 @@ static void cumsum_cpu_kernel(const Tensor& result, const Tensor& self, int64_t 
     cpu_cum_base_kernel<scalar_t>(result, self, wrap_dim, [&] (
       scalar_t* result_data, auto result_dim_stride,
       const scalar_t* self_data, auto self_dim_stride, scalar_t init_val) {
-        // NOLINTNEXTLINE(bugprone-signed-char-misuse)
-        auto cum_number = (at::acc_type<scalar_t, false>)init_val;
-        for (const auto i : c10::irange(self_dim_size)) {
-          cum_number += self_data[i * self_dim_stride];
-          result_data[i * result_dim_stride] = (scalar_t)cum_number;
+        if (result_dim_stride == 1 && self_dim_stride == 1) {
+          // contiguous stride choose SIMD path
+          cumsum(init_val, self_data, result_data, self_dim_size);
+        } else {
+          // NOLINTNEXTLINE(bugprone-signed-char-misuse)
+          auto cum_number = (at::acc_type<scalar_t, false>)init_val;
+          for (const auto i : c10::irange(self_dim_size)) {
+            cum_number += self_data[i * self_dim_stride];
+            result_data[i * result_dim_stride] = (scalar_t)cum_number;
+          }
         }
       }, /*init_val=*/ 0
     );
