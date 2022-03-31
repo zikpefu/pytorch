@@ -1029,7 +1029,7 @@ def sample_inputs_reduction(op_info, device, dtype, requires_grad, **kwargs):
     supports_multiple_dims: bool = kwargs.get('supports_multiple_dims', True)
 
     # TODO(@heitorschueroff) Once all reduction operators are using ReductionOpInfo
-    # use op_info.genearte_args_kwargs directly.
+    # use op_info.generate_args_kwargs directly.
     generate_args_kwargs = kwargs.get('generate_args_kwargs', lambda *args, **kwargs: (yield tuple(), {}))
 
     inputs: List[SampleInput] = []
@@ -8363,7 +8363,7 @@ def reference_reduction_numpy(f, supports_keepdims=True):
 
     The wrapper function will forward dim, keepdim, mask, and identity
     kwargs to the wrapped function as the NumPy equivalent axis,
-    keepdims, where, and initiak kwargs, respectively.
+    keepdims, where, and initial kwargs, respectively.
 
     Args:
         f: NumPy reduction operator to wrap
@@ -15526,6 +15526,38 @@ op_db: List[OpInfo] = [
                          'TestReductions', 'test_ref_duplicate_values'),
         ],
         sample_inputs_func=sample_inputs_masked_reduction
+    ),
+    OpInfo(
+        '_masked.cumsum',
+        dtypes=all_types_and_complex(),
+        dtypesIfCUDA=all_types_and_complex_and(torch.float16, torch.bfloat16),
+        method_variant=None,
+        supports_out=False,
+        supports_forward_ad=True,
+        supports_fwgrad_bwgrad=True,
+        skips=(
+            # NotSupportedError: Compiled functions can't ... use keyword-only arguments with defaults
+            DecorateInfo(unittest.skip("Skipped!"), 'TestJit', 'test_variant_consistency_jit'),
+        ),
+        # Can reuse the same inputs; dim is required in both
+        sample_inputs_func=sample_inputs_masked_softmax,
+        gradcheck_wrapper=gradcheck_wrapper_masked_operation,
+    ),
+    OpInfo(
+        '_masked.cumprod',
+        dtypes=all_types_and_complex(),
+        dtypesIfCUDA=all_types_and_complex_and(torch.float16, torch.bfloat16),
+        method_variant=None,
+        supports_out=False,
+        supports_forward_ad=True,
+        supports_fwgrad_bwgrad=True,
+        skips=(
+            # NotSupportedError: Compiled functions can't ... use keyword-only arguments with defaults
+            DecorateInfo(unittest.skip("Skipped!"), 'TestJit', 'test_variant_consistency_jit'),
+        ),
+        # Can reuse the same inputs; dim is required in both
+        sample_inputs_func=sample_inputs_masked_softmax,
+        gradcheck_wrapper=gradcheck_wrapper_masked_operation,
     ),
     ReductionOpInfo(
         '_masked.amax',
