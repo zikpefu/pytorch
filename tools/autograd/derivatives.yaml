@@ -2635,3 +2635,6 @@
 - name: scatter_reduce.two(Tensor self, int dim, Tensor index, str reduce, *, int? output_size=None) -> Tensor
   self: scatter_reduce_backward(grad, self, dim, index, reduce, result)
   index: non_differentiable
+
+- name: attn(Tensor q, Tensor k, Tensor v) -> (Tensor o, Tensor a)
+  q, k, v: attn_backward(grads[0], grads[1], q, k, v, a)
