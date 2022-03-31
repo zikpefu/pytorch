@@ -13,7 +13,7 @@ from torch._namedtensor_internals import (
     update_names, check_serializing_named_tensor, resolve_ellipsis,
     unzip_namedshape, single_ellipsis_index, is_ellipsis)
 from torch.overrides import (
-    has_torch_function, has_torch_function_unary, has_torch_function_variadic,
+    has_torch_function_unary, has_torch_function_variadic,
     handle_torch_function, get_default_nowrap_functions)
 import torch.utils.hooks as hooks
 
@@ -25,8 +25,6 @@ def _wrap_type_error_to_not_implemented(f):
 
     @functools.wraps(f, assigned=assigned)
     def wrapped(*args, **kwargs):
-        if has_torch_function(args):
-            return handle_torch_function(wrapped, args, *args, **kwargs)
         try:
             return f(*args, **kwargs)
         except TypeError:
@@ -1099,18 +1097,14 @@ class Tensor(torch._C._TensorBase):
 
         While not mandatory, we recommend making `__torch_function__` a classmethod.
         """
-        if kwargs is None:
-            kwargs = {}
-
         if not all(issubclass(cls, t) for t in types):
             return NotImplemented
 
-        with _C.DisableTorchFunction():
-            ret = func(*args, **kwargs)
-            if func in get_default_nowrap_functions():
-                return ret
-            else:
-                return _convert(ret, cls)
+        ret = torch._C._skip_one_hop_torch_function(func, types, args, kwargs)
+        if func in get_default_nowrap_functions():
+            return ret
+        else:
+            return _convert(ret, cls)
 
     __torch_dispatch__ = _C._disabled_torch_dispatch_impl
 
