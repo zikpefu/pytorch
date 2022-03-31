@@ -9299,6 +9299,7 @@ op_db: List[OpInfo] = [
            supports_forward_ad=True),
     OpInfo('cumsum',
            dtypes=all_types_and_complex(),
+           dtypesIfCPU=all_types_and_complex_and(torch.bfloat16),
            dtypesIfCUDA=all_types_and_complex_and(torch.half, torch.bfloat16),
            supports_forward_ad=True,
            supports_fwgrad_bwgrad=True,
@@ -9309,6 +9310,7 @@ op_db: List[OpInfo] = [
            sample_inputs_func=sample_inputs_cumulative_ops),
     OpInfo('cumprod',
            dtypes=all_types_and_complex(),
+           dtypesIfCPU=all_types_and_complex_and(torch.bfloat16),
            dtypesIfCUDA=all_types_and_complex_and(torch.float16, torch.bfloat16),
            supports_forward_ad=True,
            supports_fwgrad_bwgrad=True,
@@ -14621,6 +14623,7 @@ op_db: List[OpInfo] = [
            ),
     OpInfo('logcumsumexp',
            dtypes=floating_types_and(),
+           dtypesIfCPU=floating_types_and(torch.bfloat16),
            dtypesIfCUDA=floating_types_and(torch.half, torch.bfloat16),
            backward_dtypesIfCUDA=floating_types_and(),
            skips=(
