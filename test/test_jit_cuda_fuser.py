@@ -69,6 +69,12 @@ def is_pre_volta():
 
 TEST_BF16 = torch.cuda.is_bf16_supported()
 
+# TODO: remove this - just to avoid conflicts with 73322 and 75016
+try:
+    RUN_NVFUSER
+except NameError:
+    RUN_NVFUSER = RUN_CUDA and not TEST_WITH_ROCM and not IS_WINDOWS
+
 class TestCudaFuser(JitTestCase):
 
     special_values = torch.tensor(
@@ -4274,7 +4280,7 @@ class TestCudaFuser(JitTestCase):
         reduce_scalar(res).backward()
         torch._C._jit_set_nvfuser_guard_mode(old_guard)
 
-    @unittest.skipIf(not RUN_CUDA, "requires CUDA")
+    @unittest.skipIf(not RUN_NVFUSER, "requires CUDA")
     @unittest.skipIf(GRAPH_EXECUTOR != ProfilingMode.PROFILING,
                      "Requires fusion optimization pass to be effective")
     def test_cuda_fusion_guard_backward(self):
