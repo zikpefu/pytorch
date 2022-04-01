@@ -435,6 +435,17 @@ struct TORCH_API SymbolicShape {
     return dims_;
   }
 
+  c10::optional<std::vector<bool>> concreteDims() const {
+    if (!dims_) {
+      return c10::nullopt;
+    }
+    auto concrete_dims = std::vector<bool>();
+    for (const ShapeSymbol& s : *dims_) {
+      concrete_dims.push_back(s.is_static());
+    }
+    return concrete_dims;
+  }
+
   // Checks whether the shape is fully defined/complete, ie. rank and sizes
   // of every dimension are known.
   bool isComplete() const {
