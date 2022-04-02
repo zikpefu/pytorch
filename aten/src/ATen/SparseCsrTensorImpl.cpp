@@ -23,6 +23,7 @@ DeviceType SparseCsrTensorSetToDeviceType(DispatchKeySet key_set) {
 
 SparseCsrTensorImpl::SparseCsrTensorImpl(
     at::DispatchKeySet key_set,
+    Layout layout,
     const caffe2::TypeMeta data_type)
     : SparseCsrTensorImpl(
           key_set,
@@ -44,6 +45,8 @@ SparseCsrTensorImpl::SparseCsrTensorImpl(
               at::initialTensorOptions()
                   .device(SparseCsrTensorSetToDeviceType(key_set))
                   .dtype(data_type)) // values
+          ,
+          layout
       ) {}
 
 SparseCsrTensorImpl::SparseCsrTensorImpl(
@@ -51,15 +54,18 @@ SparseCsrTensorImpl::SparseCsrTensorImpl(
     const caffe2::TypeMeta data_type,
     at::Tensor crow_indices,
     at::Tensor col_indices,
-    at::Tensor values)
+    at::Tensor values,
+    Layout layout)
     : TensorImpl(key_set, data_type, values.device()),
       crow_indices_(std::move(crow_indices)),
       col_indices_(std::move(col_indices)),
-      values_(std::move(values)) {
+      values_(std::move(values)),
+      layout_(layout) {
   set_storage_access_should_throw();
 }
 
 void SparseCsrTensorImpl::resize_(int64_t nnz, IntArrayRef size) {
+  TORCH_CHECK(layout_ == kSparseCsr, "resize_: layout ", layout_, " is not yet supported");
   auto rows = size[0];
   auto cols = size[1];
   auto old_crow_indices_size = crow_indices_.size(-1);
@@ -75,6 +81,7 @@ void SparseCsrTensorImpl::resize_(int64_t nnz, IntArrayRef size) {
 }
 
 void SparseCsrTensorImpl::resize_as_sparse_csr_tensor_(const Tensor& src) {
+  set_layout(src.layout());
   crow_indices_ = at::empty_like(
       src.crow_indices(),
       src.crow_indices().options(),
@@ -88,6 +95,7 @@ void SparseCsrTensorImpl::resize_as_sparse_csr_tensor_(const Tensor& src) {
       src.values().options(),
       src.values().suggest_memory_format());
   sizes_and_strides_.set_sizes(src.sizes());
+
   refresh_numel();
 }
 
@@ -111,6 +119,7 @@ void SparseCsrTensorImpl::set_member_tensors(
   values_ = values;
 
   sizes_and_strides_.set_sizes(size);
+
   refresh_numel();
 }
 } // namespace at
