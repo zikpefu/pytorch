@@ -1,0 +1,10 @@
+#include <c10/core/SafePyObject.h>
+
+namespace c10 {
+
+PyObject* SafePyObject::ptr(const c10::impl::PyInterpreter* interpreter) const {
+  TORCH_INTERNAL_ASSERT(interpreter == pyinterpreter_);
+  return data_;
+}
+
+} // namespace c10
